@@ -3,6 +3,8 @@
 
 #List names of students collaborating with: 
 
+# Laura Ashlock
+
 ### SETUP: RUN THIS BEFORE STARTING ----------
 
 install.packages("rvest")
@@ -33,7 +35,10 @@ rs_old <- url_old %>% read_html() %>% html_nodes(xpath='/html/body/table[2]') %>
 
 #ANSWER
 
+rs_joined_orig <- full_join(rs_new, rs_old, by = c("Artist", "Song"))
+nrow(rs_joined_orig)
 
+#there are NA's, others are not, there are extra columns, the ranks are not correct???
 
 ### Question 2 ---------- 
 
@@ -45,6 +50,13 @@ rs_old <- url_old %>% read_html() %>% html_nodes(xpath='/html/body/table[2]') %>
 
 #ANSWER
 
+rs_new <- rs_new %>% add_column(Source = 'New')
+rs_old <- rs_old %>% add_column(Source = 'Old')
+
+rs_all <- bind_rows(rs_new, rs_old)
+
+rs_old$Rank <- as.integer(rs_old$Rank)
+rs_old$Year <- as.integer(rs_old$Year)
 
 ### Question 3 ----------
 
@@ -57,6 +69,20 @@ rs_old <- url_old %>% read_html() %>% html_nodes(xpath='/html/body/table[2]') %>
 
 #ANSWER
 
+rs_all <- rs_all %>% mutate(Artist = str_remove_all(Artist, "The"))
+rs_all <- rs_all %>% mutate(Song = str_remove_all(Song, "The"))
+
+rs_all <- rs_all %>% mutate(Artist = str_replace_all(Artist, "&", "and"))
+rs_all <- rs_all %>% mutate(Song = str_replace_all(Song, "&", "and"))
+
+rs_all <- rs_all %>% mutate(Artist = str_remove_all(Artist, "[:punct:]"))
+rs_all <- rs_all %>% mutate(Song = str_remove_all(Song, "[:punct:]"))
+
+rs_all <- rs_all %>% mutate(Artist = str_to_lower(Artist))
+rs_all <- rs_all %>% mutate(Song = str_to_lower(Song))
+
+rs_all <- rs_all %>% mutate(Artist = str_trim(Artist))
+rs_all <- rs_all %>% mutate(Song = str_trim(Song))
 
 ### Question 4 ----------
 
@@ -70,6 +96,15 @@ rs_old <- url_old %>% read_html() %>% html_nodes(xpath='/html/body/table[2]') %>
 
 #ANSWER
 
+rs_all <- rs_all %>% mutate(Source = as.factor(Source))
+rs_all <- rs_all %>% mutate(rs_all, Source = as.factor(Source))
+rs_split <- split(rs_all, rs_all$Source)
+
+old <- rs_split[["Old"]] 
+new <- rs_split[["New"]] 
+
+rs_joined <- full_join(old, new, by = c("Artist", "Song"), suffix = c("_Old", "_New"))
+nrow(rs_joined)
 
 ### Question 5 ----------
 
@@ -83,6 +118,11 @@ rs_old <- url_old %>% read_html() %>% html_nodes(xpath='/html/body/table[2]') %>
 
 #ANSWER
 
+rs_joined <- select(rs_joined, -c('Source_Old','Source_New'))
+rs_joined <- rs_joined %>% drop_na(c('Rank_New', 'Rank_Old'))
+
+
+rs_joined <- rs_joined %>% mutate(Rank_Change = as.numeric(Rank_Old)-as.numeric(Rank_New))
 
 ### Question 6 ----------
 
@@ -94,7 +134,14 @@ rs_old <- url_old %>% read_html() %>% html_nodes(xpath='/html/body/table[2]') %>
 
 #ANSWER
 
+rs_joined <- rs_joined %>% mutate(rs_joined, Decade= (floor(rs_joined$Year_Old/ 10) * 10))
 
+rs_joined$Decade <- paste0(rs_joined$Decade, "s")
+
+rs_joined %>% group_by(Decade) %>%
+  summarize(mean_rank_change = mean(Rank_Change, na.rm=TRUE), n = n())
+
+#1990s improved the most compared to the other dacades#
 
 ### Question 7 ----------
 
@@ -105,7 +152,7 @@ rs_old <- url_old %>% read_html() %>% html_nodes(xpath='/html/body/table[2]') %>
 
 #ANSWER
 
-
+rs_joined %>% fct_count(Decade as.numeric(Decade))
 
 ### Question 8 ---------- 
 
